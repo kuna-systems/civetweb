@@ -25,7 +25,10 @@ DOCDIR = $(DATAROOTDIR)/doc/$(CPROG)
 SYSCONFDIR = $(PREFIX)/etc
 HTMLDIR = $(DOCDIR)
 
-UNAME := $(shell uname)
+# build tools
+MKDIR = mkdir -p
+RMF = rm -f
+RMRF = rm -rf
 
 # desired configuration of the document root
 # never assume that the document_root actually
@@ -35,15 +38,17 @@ UNAME := $(shell uname)
 DOCUMENT_ROOT = $(HTMLDIR)
 PORTS = 8080
 
-BUILD_DIRS += $(BUILD_DIR) $(BUILD_DIR)/src
+BUILD_DIRS = $(BUILD_DIR) $(BUILD_DIR)/src $(BUILD_DIR)/resources
 
 LIB_SOURCES = src/civetweb.c
 LIB_INLINE  = src/mod_lua.inl src/md5.inl
 APP_SOURCES = src/main.c
+WINDOWS_RESOURCES = resources/res.rc
 UNIT_TEST_SOURCES = test/unit_test.c
 SOURCE_DIRS =
 
 OBJECTS = $(LIB_SOURCES:.c=.o) $(APP_SOURCES:.c=.o)
+BUILD_RESOURCES =
 
 # The unit tests include the source files directly to get visibility to the
 # static functions.  So we clear OBJECTS so that we don't try to build or link
@@ -55,7 +60,9 @@ BUILD_DIRS += $(BUILD_DIR)/test
 endif
 
 # only set main compile options if none were chosen
-CFLAGS += -W -Wall -O2 -D$(TARGET_OS) -Iinclude $(COPT)
+CFLAGS += -Wall -Wextra -Wshadow -Wformat-security -Winit-self -Wmissing-prototypes -O2 -D$(TARGET_OS) -Iinclude $(COPT) -DUSE_STACK_SIZE=102400
+
+LIBS = -lpthread -lm
 
 ifdef WITH_DEBUG
   CFLAGS += -g -DDEBUG_ENABLED
@@ -70,8 +77,30 @@ else
   LCC = $(CC)
 endif
 
+ifdef WITH_LUA_SHARED
+  WITH_LUA = 1
+endif
+
+ifdef WITH_LUAJIT_SHARED
+  WITH_LUA_SHARED = 1
+  WITH_LUA = 1
+  WITH_LUA_VERSION = 501
+endif
+
 ifdef WITH_LUA
- include resources/Makefile.in-lua
+  include resources/Makefile.in-lua
+endif
+
+ifdef WITH_SSJS
+  WITH_DUKTAPE = 1
+endif
+
+ifdef WITH_DUKTAPE_SHARED
+  WITH_DUKTAPE = 1
+endif
+
+ifdef WITH_DUKTAPE
+  include resources/Makefile.in-duktape
 endif
 
 ifdef WITH_IPV6
@@ -103,22 +132,31 @@ BUILD_OBJECTS = $(addprefix $(BUILD_DIR)/, $(OBJECTS))
 MAIN_OBJECTS = $(addprefix $(BUILD_DIR)/, $(APP_SOURCES:.c=.o))
 LIB_OBJECTS = $(filter-out $(MAIN_OBJECTS), $(BUILD_OBJECTS))
 
-
-LIBS = -lpthread -lm
-
 ifeq ($(TARGET_OS),LINUX)
-	LIBS += -ldl
+  LIBS += -lrt -ldl
+  CAN_INSTALL = 1
 endif
 
-ifeq ($(TARGET_OS),LINUX)
-	CAN_INSTALL = 1
+ifeq ($(TARGET_OS),WIN32)
+  MKDIR = mkdir
+  RMF = del /q
+  RMRF = rmdir /s /q
 endif
 
-ifneq (, $(findstring MINGW32, $(UNAME)))
-   LIBS += -lws2_32 -lcomdlg32
-   SHARED_LIB=dll
+ifdef WITH_LUAJIT_SHARED
+  LIBS += -lluajit-5.1
 else
-   SHARED_LIB=so
+ifdef WITH_LUA_SHARED
+  LIBS += $(LUA_SHARED_LIB_FLAG)
+endif
+endif
+
+ifneq (, $(findstring mingw32, $(shell $(CC) -dumpmachine)))
+  BUILD_RESOURCES = $(BUILD_DIR)/$(WINDOWS_RESOURCES:.rc=.o)
+  LIBS += -lws2_32 -mwindows
+  SHARED_LIB = dll
+else
+  SHARED_LIB = so
 endif
 
 all: build
@@ -133,7 +171,12 @@ help:
 	@echo "make unit_test           build unit tests executable"
 	@echo ""
 	@echo " Make Options"
-	@echo "   WITH_LUA=1            build with Lua support"
+	@echo "   WITH_LUA=1            build with Lua support; include Lua as static library"
+	@echo "   WITH_LUA_SHARED=1     build with Lua support; use dynamic linking to liblua5.2.so"
+	@echo "   WITH_LUA_VERSION=502  build with Lua 5.2.x (501 for Lua 5.1.x to 503 for 5.3.x)"
+	@echo "   WITH_DUKTAPE=1        build with Duktape support; include as static library"
+	@echo "   WITH_DUKTAPE_SHARED=1 build with Duktape support; use libduktape1.3.so"
+#	@echo "   WITH_DUKTAPE_VERSION=103 build with Duktape 1.3.x"
 	@echo "   WITH_DEBUG=1          build with GDB debug support"
 	@echo "   WITH_IPV6=1           with IPV6 support"
 	@echo "   WITH_WEBSOCKET=1      build with web socket support"
@@ -153,6 +196,8 @@ help:
 	@echo "   NO_CGI                disable CGI support"
 	@echo "   NO_SSL                disable SSL functionality"
 	@echo "   NO_SSL_DL             link against system libssl library"
+	@echo "   NO_FILES              do not serve files from a directory"
+	@echo "   NO_CACHING            disable caching (usefull for systems without timegm())"
 	@echo "   MAX_REQUEST_SIZE      maximum header size, default 16384"
 	@echo ""
 	@echo " Variables"
@@ -201,32 +246,45 @@ lib: lib$(CPROG).a
 slib: lib$(CPROG).$(SHARED_LIB)
 
 clean:
-	rm -rf $(BUILD_DIR)
+	$(RMRF) $(BUILD_DIR)
+	$(eval version=$(shell grep "define CIVETWEB_VERSION" include/civetweb.h | sed 's|.*VERSION "\(.*\)"|\1|g'))
+	$(eval major=$(shell echo $(version) | cut -d'.' -f1))
+	$(RMRF) lib$(CPROG).a
+	$(RMRF) lib$(CPROG).so
+	$(RMRF) lib$(CPROG).so.$(major)
+	$(RMRF) lib$(CPROG).so.$(version).0
+	$(RMRF) $(CPROG)
+	$(RMF) $(UNIT_TEST_PROG)
 
 distclean: clean
-	@rm -rf VS2012/Debug VS2012/*/Debug  VS2012/*/*/Debug
-	@rm -rf VS2012/Release VS2012/*/Release  VS2012/*/*/Release
-	rm -f $(CPROG) lib$(CPROG).so lib$(CPROG).a *.dmg *.msi *.exe lib$(CPROG).dll lib$(CPROG).dll.a
-	rm -f $(UNIT_TEST_PROG)
+	@$(RMRF) VS2012/Debug VS2012/*/Debug  VS2012/*/*/Debug
+	@$(RMRF) VS2012/Release VS2012/*/Release  VS2012/*/*/Release
+	$(RMF) $(CPROG) lib$(CPROG).so lib$(CPROG).a *.dmg *.msi *.exe lib$(CPROG).dll lib$(CPROG).dll.a
+	$(RMF) $(UNIT_TEST_PROG)
 
+lib$(CPROG).a: CFLAGS += -fPIC
 lib$(CPROG).a: $(LIB_OBJECTS)
-	@rm -f $@
+	@$(RMF) $@
 	ar cq $@ $(LIB_OBJECTS)
 
 lib$(CPROG).so: CFLAGS += -fPIC
 lib$(CPROG).so: $(LIB_OBJECTS)
-	$(LCC) -shared -o $@ $(CFLAGS) $(LDFLAGS) $(LIB_OBJECTS)
+	$(eval version=$(shell grep "define CIVETWEB_VERSION" include/civetweb.h | sed 's|.*VERSION "\(.*\)"|\1|g'))
+	$(eval major=$(shell echo $(version) | cut -d'.' -f1))
+	$(LCC) -shared -Wl,-soname,$@.$(major) -o $@.$(version).0 $(CFLAGS) $(LDFLAGS) $(LIB_OBJECTS)
+	ln -s -f $@.$(major) $@
+	ln -s -f $@.$(version).0 $@.$(major)
 
 lib$(CPROG).dll: CFLAGS += -fPIC
 lib$(CPROG).dll: $(LIB_OBJECTS)
 	$(LCC) -shared -o $@ $(CFLAGS) $(LDFLAGS) $(LIB_OBJECTS) $(LIBS) -Wl,--out-implib,lib$(CPROG).dll.a
 
-$(UNIT_TEST_PROG): CFLAGS += -Isrc
+$(UNIT_TEST_PROG): CFLAGS += -Isrc -g
 $(UNIT_TEST_PROG): $(LIB_SOURCES) $(LIB_INLINE) $(UNIT_TEST_SOURCES) $(BUILD_OBJECTS)
 	$(LCC) -o $@ $(CFLAGS) $(LDFLAGS) $(UNIT_TEST_SOURCES) $(BUILD_OBJECTS) $(LIBS)
 
-$(CPROG): $(BUILD_OBJECTS)
-	$(LCC) -o $@ $(CFLAGS) $(LDFLAGS) $(BUILD_OBJECTS) $(LIBS)
+$(CPROG): $(BUILD_OBJECTS) $(BUILD_RESOURCES)
+	$(LCC) -o $@ $(CFLAGS) $(LDFLAGS) $(BUILD_OBJECTS) $(BUILD_RESOURCES) $(LIBS)
 
 $(CXXPROG): $(BUILD_OBJECTS)
 	$(CXX) -o $@ $(CFLAGS) $(LDFLAGS) $(BUILD_OBJECTS) $(LIBS)
@@ -234,13 +292,16 @@ $(CXXPROG): $(BUILD_OBJECTS)
 $(BUILD_OBJECTS): $(BUILD_DIRS)
 
 $(BUILD_DIRS):
-	-@mkdir -p "$@"
+	-@$(MKDIR) "$@"
 
 $(BUILD_DIR)/%.o : %.cpp
 	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $< -o $@
 
 $(BUILD_DIR)/%.o : %.c
 	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_RESOURCES) : $(WINDOWS_RESOURCES)
+	windres $(WINDRES_FLAGS) $< $@
 
 # This rules is used to keep the code formatted in a reasonable manor
 # For this to work astyle must be installed and in the path

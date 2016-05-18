@@ -1,6 +1,101 @@
+Release Notes v1.8 (work in progress)
+===
+### Objectives: *Support client certificates, CMake integration, bug fixes*
+
+Changes
+-------
+
+- Replace mg_upload by mg_handle_form_request
+- CGI-scripts must receive EOF if all POST data is read
+- Add API function to handle all kinds of HTML form data
+- Do not allow short file names in Windows
+- Callback when a new thread is initialized
+- Support for short lived certificates
+- Add NO_CACHING compile option
+- Update Visual Studio project files to VS2015; rename directory VS2012 to VS
+- Sec-Wesocket-Protocol must only return one protocol
+- Mark some examples and tests as obsolete
+- Remove no longer maintained test utils
+- Add some default MIME types and the mg_send_mime_file API function.
+- Client API using SSL certificates
+- Send "Cache-Control" headers
+- Add alternative to mg_upload
+- Additional configuration options
+- Fix memory leaks
+- Add API function to check available features
+- Add new interface to get listening ports
+- Add websocket client interface and encode websocket data with a simple random number
+- Support SSL client certificates
+- Add configuration options for SSL client certificates
+- Stand-alone server: Add command line option -I to display information about the system
+- Redirect stderr of CGI process to error log
+- Support absolute URI; split uri in mg_request_info to request_uri and local_uri
+- Some source code refactoring, to improve maintainability
+- Use recursive mutex for Linux
+- Allow CGI environment to grow dynamically
+- Support build for Lua 5.1 (including LuaJIT), Lua 5.2 and Lua 5.3
+- Improve examples and documentation
+- Build option CIVETWEB_SERVE_NO_FILES to disable serving static files
+- Add Server side JavaScript support (Duktape library)
+- Created a "civetweb" organization at GitHub.
+- Repository moved from https://github.com/bel2125/civetweb to https://github.com/civetweb/civetweb
+- Improved continuous integration
+- CMake support, continuous integration with Travis CI and Appveyor
+- Adapt/port unit tests to CMake/Travis/Appveyor
+- Bug fixes, including issues from static code analysis
+- Add status badges to the GitHub project main page
+- Updated version number
+
+Release Notes v1.7
+===
+### Objectives: *Examples, documentation, additional API functions, some functions rewritten, bug fixes and updates*
+
+Changes
+-------
+
+- Format source with clang_format
+- Use function 'sendfile' for Linux
+- Fix for CRAMFS in Linux
+- Fix for file modification times in Windows
+- Use SO_EXCLUSIVEADDRUSE instead of SO_REUSEADDR for Windows
+- Rewrite push/pull functions
+- Allow to use Lua as shared objects (WITH_LUA_SHARED)
+- Fixes for many warnings
+- URI specific callbacks and different timeouts for websockets
+- Add chunked transfer support
+- Update LuaFileSystem
+- Update Lua to 5.2.4
+- Fix build for MinGW-x64, TDM-GCC and clang
+- Update SQLite to 3.8.10.2
+- Fix CGI variables SCRIPT_NAME and PATH_TRANSLATED
+- Set TCP_USER_TIMEOUT to deal faster with broken connections
+- Add a Lua form handling example
+- Return more differentiated HTTP error codes
+- Add log_access callback
+- Rewrite and comment request handling function
+- Specify in detail and document return values of callback functions
+- Set names for all threads (unless NO_THREAD_NAME is defined)
+- New API functions for TCP/HTTP clients
+- Fix upload of huge files
+- Allow multiple SSL instances within one application
+- Improve API and user documentation
+- Allow to choose between static and dynamic Lua library
+- Improve unit test
+- Use temporary file name for partially uploaded files
+- Additional API functions exported to C++
+- Add a websocket client example
+- Add a websocket client API
+- Update websocket example
+- Make content length available in request_info
+- New API functions: access context, callback for create/delete, access user data
+- Upgraded Lua from 5.2.2 to 5.2.3 and finally 5.2.4
+- Integrate LuaXML (for testing purposes)
+- Fix compiler warnings
+- Updated version number
+
 Release Notes v1.6
 ===
-### Objectives: *Enhance Lua support, configuration dialog for windows, new examples, bug fixes and updates"
+### Objectives: *Enhance Lua support, configuration dialog for windows, new examples, bug fixes and updates*
 
 Changes
 -------

@@ -1,5 +1,6 @@
 
 civetweb
+civetweb_test
 libcivetweb.a
 libcivetweb.so
 *-cache
@@ -8,7 +9,17 @@ out
 *.msi
 *.exe
 *.zip
-Output
+[oO]utput
+[tT]esting
+
+*.o
+
+#################
+## CMake
+#################
+/CMakeCache.txt
+/CMakeFiles
+/mingw-builds
 
 #################
 ## Eclipse
@@ -53,9 +64,14 @@ local.properties
 *.user
 *.sln.docstates
 
+# Text-mode IDE tools
+cscope.out
+tags
+
 # Build results
 
 [Dd]ebug/
+[Dd]ebug CONSOLE/
 [Rr]elease/
 x64/
 [Bb]in/
@@ -233,5 +249,18 @@ requests.db
 ##########################
 ## Files created by ctags
 ##########################
-tags
+?tags
+?tags?
+
+##########################
+## Files created by autotools
+##########################
+*.lo
+.libs
+
+##########################
+## Travis Build Dir
+##########################
+ci/lua
+
 
